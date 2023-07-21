@@ -19,7 +19,13 @@ class LexicalAnalyzer:
     def read_file(self):
         with open(PROGRAM_FILE_NAME) as f:
             lines = f.readlines()
+            line_number = 0
             for line in lines:
+                line_number += 1
                 tokens = line.split(' ')
-                if len(tokens) != 2:
-                    raise GrammaticalError('программа должна начинаться с "program" и имени программы')
+
+                if line_number == 1:
+                    if len(tokens) != 2:
+                        raise GrammaticalError('программа должна начинаться с "program" и имени программы')
+                else:
+                    pass
