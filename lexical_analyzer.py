@@ -1,4 +1,3 @@
-PROGRAM_FILE_NAME = 'program.f'
 
 
 class GrammaticalError(Exception):
@@ -12,20 +11,28 @@ class GrammaticalError(Exception):
 
 class LexicalAnalyzer:
 
-    def __init__(self):
-        pass
+    program_filename = None
 
+    def __init__(self, program_filename):
+        self.program_filename = program_filename
 
-    def read_file(self):
-        with open(PROGRAM_FILE_NAME) as f:
+    def analyze(self):
+        with open(self.program_filename, 'r') as f:
             lines = f.readlines()
-            line_number = 0
-            for line in lines:
-                line_number += 1
-                tokens = line.split(' ')
+            program_declared = False
 
-                if line_number == 1:
-                    if len(tokens) != 2:
+            for line in lines:
+                line = line.strip()
+                if line.startswith('!'):
+                    continue
+
+                line_without_comments = line.split('!')[0]
+                tokens = line_without_comments.split(' ')
+
+                if not program_declared:
+                    if len(tokens) != 2 or tokens[0] != 'program':
                         raise GrammaticalError('программа должна начинаться с "program" и имени программы')
+                    else:
+                        program_declared = True
                 else:
                     pass
