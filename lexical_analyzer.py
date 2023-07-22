@@ -30,13 +30,11 @@ class LexicalAnalyzer:
             for line in lines:
                 if program_closed:
                     raise GrammaticalError('неверный токен - конец программы уже был объявлен')
-                # очистка строки от пробелов в начале и конце
-                stripped_line = line.strip()
                 # очистить строку от комментариев
-                line_without_comments = stripped_line.split('!')[0]
+                line_without_comments = line.split('!')[0]
                 tokens = line_without_comments.split(' ')
                 # проверка на завершение блока
-                if program_declared and stripped_line.startswith('end') and not program_closed:
+                if program_declared and line.startswith('end') and not program_closed:
                     if tokens[1] == 'program':
                         if not program_name == tokens[2]:
                             raise GrammaticalError('имя программы не верное')
@@ -56,7 +54,7 @@ class LexicalAnalyzer:
                     # проверка на отсутп
                     for i in range(current_indent):
                         if line[i] != ' ':
-                            raise GrammaticalError('неверный токен - должен быть отступ')
+                            raise GrammaticalError('неверный токен')
                     line = line[current_indent:]
 
                 # если вся строка это комментарий - пропустить строку
@@ -69,7 +67,7 @@ class LexicalAnalyzer:
                         raise GrammaticalError('программа должна начинаться с "program" и имени программы')
                     else:
                         program_declared = True
-                        program_name = tokens[1]
+                        program_name = tokens[1].strip()
                         current_indent = 2
                 else:
                     pass
