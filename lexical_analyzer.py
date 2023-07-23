@@ -9,9 +9,14 @@ class TokenConstructions(Enum):
     PROGRAM_DECLARATION = 1
     END_DECLARATION_START = 2
     NEW_TOKEN = 3
+    NEW_VARIABLE_INTEGER = 4
+    NEW_VARIABLE_REAL = 5
+    NEW_VARIABLE_COMPLEX = 6
+    NEW_VARIABLE_CHARACTER = 7
+    NEW_VARIABLE_LOGICAL = 8
 
 
-class GrammaticalError(Exception):
+class SynthaxError(Exception):
     error_text = None
     line_number = None
     symbol_number = None
@@ -22,7 +27,7 @@ class GrammaticalError(Exception):
         self.current_character_number = current_character_number
 
     def __str__(self):
-        return f'строка {self.line_number} символ {self.current_character_number}: Грамматическая ошибка: {self.error_text}'
+        return f'строка {self.line_number} символ {self.current_character_number}: Синтаксическая ошибка: {self.error_text}'
 
 
 class LexicalAnalyzer:
@@ -49,7 +54,7 @@ class LexicalAnalyzer:
                 current_character_number = 0
                 line_number += 1
                 if program_closed:
-                    raise GrammaticalError('неверный токен - конец программы уже был объявлен', line_number, current_character_number)
+                    raise SynthaxError('неверный токен - конец программы уже был объявлен', line_number, current_character_number)
                 # очистить строку от комментариев
                 line_without_comments = line.split('!')[0]
                 # если вся строка это комментарий - пропустить строку
@@ -61,46 +66,49 @@ class LexicalAnalyzer:
                 current_token_number = 1
                 for c in line_without_comments:
                     if current_indent and current_character_number < current_indent:
-                        pass
+                        if c == 'e':
+                            current_indent -= 2 # убираем отступ, чтобы корректно собрать токен
+                            current_token += c
+                            self.current_state = TokenConstructions.END_DECLARATION_START
+                        else:
+                            pass
                     else:
                         # проверка первого символа
                         if c not in string.ascii_letters and current_character_number == current_indent:
-                            raise GrammaticalError("недопустимый символ", line_number, current_character_number)
+                            raise SynthaxError("недопустимый символ", line_number, current_character_number)
                         # сборка токена
                         if c != ' ' and c != '\n':
                             current_token += c
-                        if (c == ' ' or c == '\n') and current_token:
+                        elif (c == ' ' or c == '\n') and current_token:
                             current_token_lower = current_token.lower()
-                            if current_token_lower == 'program':
-                                if program_declared and current_token_number == 1:
-                                    raise GrammaticalError("недопустимый символ", line_number, current_character_number)
-                                self.current_state = TokenConstructions.PROGRAM_DECLARATION
-                                current_token = current_token_lower = ''
+                            if self.current_state == TokenConstructions.NEW_TOKEN:
+                                if current_token_lower == 'program':
+                                    if program_declared and current_token_number == 1:
+                                        raise SynthaxError("недопустимый символ", line_number, current_character_number)
+                                    self.current_state = TokenConstructions.PROGRAM_DECLARATION
                             elif self.current_state == TokenConstructions.PROGRAM_DECLARATION:
                                 if current_token_number == 2:
                                     program_name = current_token
                                     current_indent += 2
                                     open_indent_blocks.append('program')
-                                    current_token = current_token_lower = ''
                                     self.current_state = TokenConstructions.NEW_TOKEN
                                 else:
-                                    raise GrammaticalError("недопустимый символ", line_number, current_character_number)
-                            elif current_token_lower == 'end':
-                                self.current_state = TokenConstructions.END_DECLARATION_START
-                                current_token = current_token_lower = ''
+                                    raise SynthaxError("недопустимый символ", line_number, current_character_number)
                             elif self.current_state == TokenConstructions.END_DECLARATION_START:
-                                if current_token_lower == 'program':
+                                if current_token_lower == 'end':
+                                    pass
+                                elif current_token_lower == 'program' and open_indent_blocks[-1] == 'program':  # end program
+                                    pass
+                                elif current_token_lower == program_name:  # end program <program_name>
                                     program_closed = True
-                                elif current_token_lower == 'if' and open_indent_blocks[-1] == 'if':
-                                    current_indent -= 2
+                                    open_indent_blocks.pop()
+                                elif current_token_lower == 'if' and open_indent_blocks[-1] == 'if':  # end if
                                     open_indent_blocks.pop()
                                     self.current_state = TokenConstructions.NEW_TOKEN
-                                    current_token = current_token_lower = ''
-                            elif self.current_state == TokenConstructions.NEW_TOKEN:
-                                    current_token = current_token_lower = ''
-
-
+                                else:
+                                    raise SynthaxError("недопустимый символ", line_number, current_character_number)
 
                             current_token_number += 1
+                            current_token = current_token_lower = ''
 
                     current_character_number += 1
