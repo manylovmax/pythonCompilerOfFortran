@@ -2,18 +2,20 @@ import string
 from enum import Enum
 
 TOKENS_ADD_INDENT = ['program', 'if']
-TOKEN_ALLOWED_SYMBOLS = string.ascii_letters + string.digits
+TOKEN_ALLOWED_SYMBOLS = string.ascii_letters + string.digits + '_'
 
 
 class TokenConstructions(Enum):
     PROGRAM_DECLARATION = 1
     END_DECLARATION_START = 2
     NEW_TOKEN = 3
-    NEW_VARIABLE_INTEGER = 4
-    NEW_VARIABLE_REAL = 5
-    NEW_VARIABLE_COMPLEX = 6
-    NEW_VARIABLE_CHARACTER = 7
-    NEW_VARIABLE_LOGICAL = 8
+    IMPLICIT_TYPING = 4
+    NEW_VARIABLE_INTEGER = 5
+    NEW_VARIABLE_REAL = 6
+    NEW_VARIABLE_COMPLEX = 7
+    NEW_VARIABLE_CHARACTER = 8
+    NEW_VARIABLE_LOGICAL = 9
+    NEW_VARIABLE_SEPARATOR = 10
 
 
 class SynthaxError(Exception):
@@ -33,6 +35,11 @@ class SynthaxError(Exception):
 class LexicalAnalyzer:
     program_filename = None
     current_state = None
+    last_state = None
+
+    def set_state(self, new_state):
+        self.last_state = self.current_state
+        self.current_state = new_state
 
     def __init__(self, program_filename):
         self.program_filename = program_filename
@@ -42,6 +49,8 @@ class LexicalAnalyzer:
         with open(self.program_filename, 'r') as f:
             lines = f.readlines()
             # в текущей реализации в файле может быть только один модуль
+            implicit_typing_declared = False
+            first_variable_declared = False
             program_declared = False
             program_closed = False
             program_name = None
@@ -69,7 +78,7 @@ class LexicalAnalyzer:
                         if c == 'e':
                             current_indent -= 2 # убираем отступ, чтобы корректно собрать токен
                             current_token += c
-                            self.current_state = TokenConstructions.END_DECLARATION_START
+                            self.set_state(TokenConstructions.END_DECLARATION_START)
                         else:
                             pass
                     else:
@@ -85,13 +94,17 @@ class LexicalAnalyzer:
                                 if current_token_lower == 'program':
                                     if program_declared and current_token_number == 1:
                                         raise SynthaxError("недопустимый символ", line_number, current_character_number)
-                                    self.current_state = TokenConstructions.PROGRAM_DECLARATION
+                                    self.set_state(TokenConstructions.PROGRAM_DECLARATION)
+                                elif current_token_lower == 'implicit':
+                                    self.set_state(TokenConstructions.IMPLICIT_TYPING)
+                                elif current_token_lower == 'integer':
+                                    pass
                             elif self.current_state == TokenConstructions.PROGRAM_DECLARATION:
                                 if current_token_number == 2:
                                     program_name = current_token
                                     current_indent += 2
                                     open_indent_blocks.append('program')
-                                    self.current_state = TokenConstructions.NEW_TOKEN
+                                    self.set_state(TokenConstructions.NEW_TOKEN)
                                 else:
                                     raise SynthaxError("недопустимый символ", line_number, current_character_number)
                             elif self.current_state == TokenConstructions.END_DECLARATION_START:
@@ -104,9 +117,13 @@ class LexicalAnalyzer:
                                     open_indent_blocks.pop()
                                 elif current_token_lower == 'if' and open_indent_blocks[-1] == 'if':  # end if
                                     open_indent_blocks.pop()
-                                    self.current_state = TokenConstructions.NEW_TOKEN
+                                    self.set_state(TokenConstructions.NEW_TOKEN)
                                 else:
                                     raise SynthaxError("недопустимый символ", line_number, current_character_number)
+                            elif self.current_state == TokenConstructions.IMPLICIT_TYPING:
+                                if current_token_lower == 'none':
+                                    self.set_state(TokenConstructions.NEW_TOKEN)
+                                    implicit_typing_declared = True
 
                             current_token_number += 1
                             current_token = current_token_lower = ''
