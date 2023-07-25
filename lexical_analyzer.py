@@ -3,6 +3,7 @@ from enum import Enum
 
 TOKENS_ADD_INDENT = ['program', 'if']
 TOKEN_ALLOWED_SYMBOLS = string.ascii_letters + string.digits + '_'
+PROGRAM_KEYWORDS = ('program', 'implicit', 'none', 'integer', 'end')  # TODO: нужно дописать
 
 
 class TokenConstructions(Enum):
@@ -35,10 +36,10 @@ class SynthaxError(Exception):
 class LexicalAnalyzer:
     program_filename = None
     current_state = None
-    last_state = None
+    previous_state = None
 
     def set_state(self, new_state):
-        self.last_state = self.current_state
+        self.previous_state = self.current_state
         self.current_state = new_state
 
     def __init__(self, program_filename):
@@ -90,6 +91,7 @@ class LexicalAnalyzer:
                             current_token += c
                         elif (c == ' ' or c == '\n') and current_token:
                             current_token_lower = current_token.lower()
+
                             if self.current_state == TokenConstructions.NEW_TOKEN:
                                 if current_token_lower == 'program':
                                     if program_declared and current_token_number == 1:
@@ -98,7 +100,8 @@ class LexicalAnalyzer:
                                 elif current_token_lower == 'implicit':
                                     self.set_state(TokenConstructions.IMPLICIT_TYPING)
                                 elif current_token_lower == 'integer':
-                                    pass
+                                    self.set_state(TokenConstructions.NEW_VARIABLE_INTEGER)
+
                             elif self.current_state == TokenConstructions.PROGRAM_DECLARATION:
                                 if current_token_number == 2:
                                     program_name = current_token
@@ -107,6 +110,7 @@ class LexicalAnalyzer:
                                     self.set_state(TokenConstructions.NEW_TOKEN)
                                 else:
                                     raise SynthaxError("недопустимый символ", line_number, current_character_number)
+
                             elif self.current_state == TokenConstructions.END_DECLARATION_START:
                                 if current_token_lower == 'end':
                                     pass
@@ -120,10 +124,28 @@ class LexicalAnalyzer:
                                     self.set_state(TokenConstructions.NEW_TOKEN)
                                 else:
                                     raise SynthaxError("недопустимый символ", line_number, current_character_number)
+
                             elif self.current_state == TokenConstructions.IMPLICIT_TYPING:
                                 if current_token_lower == 'none':
                                     self.set_state(TokenConstructions.NEW_TOKEN)
                                     implicit_typing_declared = True
+
+                            elif self.current_state in [TokenConstructions.NEW_VARIABLE_INTEGER,
+                                                        TokenConstructions.NEW_VARIABLE_CHARACTER,
+                                                        TokenConstructions.NEW_VARIABLE_REAL,
+                                                        TokenConstructions.NEW_VARIABLE_COMPLEX,
+                                                        TokenConstructions.NEW_VARIABLE_LOGICAL]:
+                                if current_token == '::':
+                                    self.set_state(TokenConstructions.NEW_VARIABLE_SEPARATOR)
+                                else:
+                                    raise SynthaxError("недопустимый символ", line_number, current_character_number)
+
+                            elif self.current_state == TokenConstructions.NEW_VARIABLE_SEPARATOR:
+                                if current_token_lower not in PROGRAM_KEYWORDS:
+                                    self.set_state(TokenConstructions.NEW_TOKEN)
+                                    # TODO: нужно составить тут список имен переменных?
+                                else:
+                                    raise SynthaxError(f"недопустимый токен {current_token}", line_number, current_character_number)
 
                             current_token_number += 1
                             current_token = current_token_lower = ''
